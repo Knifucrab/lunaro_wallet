@@ -21,6 +21,7 @@
     "@mui/lab": "^7.0.0-beta.17",
     "@mui/material": "^7.3.2",
     "@rainbow-me/rainbowkit": "^2.2.8",
+    "axios": "^1.12.2",
     "cryptocurrency-icons": "^0.18.1",
     "ethers": "^6.15.0",
     "framer-motion": "^12.23.12",

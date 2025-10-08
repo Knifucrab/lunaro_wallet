@@ -6,6 +6,9 @@ export type Token = 'DAI' | 'USDC';
 export interface TokenBalance {
   symbol: Token;
   balance: string; // string representation of the balance for the user
+  price?: string; // USD price
+  priceChange?: number; // percentage change (e.g., 1.68 for +1.68%)
+  priceChangeAmount?: string; // dollar change amount (e.g., "+$12.08")
 }
 
 export interface EventLog {

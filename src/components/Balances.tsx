@@ -9,7 +9,7 @@ import {
   ListItemText,
   Box,
 } from '@mui/material';
-import { AccountBalanceWallet as WalletIcon } from '@mui/icons-material';
+import { AccountBalanceWallet as WalletIcon, TrendingUp, TrendingDown } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import { useAppContext } from '../context/useAppContext';
 import { BalanceSkeleton } from './LoadingSkeletons';
@@ -83,13 +83,55 @@ const Balances: React.FC = () => {
                       </Typography>
                     }
                   />
-                  <Box sx={{ textAlign: 'right' }}>
-                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                      {balance.balance}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {balance.symbol}
-                    </Typography>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'flex-end',
+                      gap: 0.5,
+                    }}
+                  >
+                    <Box sx={{ textAlign: 'right' }}>
+                      <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                        {balance.balance}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {balance.symbol}
+                      </Typography>
+                    </Box>
+                    {balance.price && (
+                      <Box sx={{ textAlign: 'right' }}>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          {balance.price}
+                        </Typography>
+                        {balance.priceChange !== undefined && (
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'flex-end',
+                              gap: 0.5,
+                            }}
+                          >
+                            {balance.priceChange > 0 ? (
+                              <TrendingUp sx={{ fontSize: 14, color: 'success.main' }} />
+                            ) : (
+                              <TrendingDown sx={{ fontSize: 14, color: 'error.main' }} />
+                            )}
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                color: balance.priceChange > 0 ? 'success.main' : 'error.main',
+                                fontWeight: 500,
+                              }}
+                            >
+                              {balance.priceChange > 0 ? '+' : ''}
+                              {balance.priceChange}% ({balance.priceChangeAmount})
+                            </Typography>
+                          </Box>
+                        )}
+                      </Box>
+                    )}
                   </Box>
                 </ListItem>
               </motion.div>

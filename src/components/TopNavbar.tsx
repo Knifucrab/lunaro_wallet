@@ -1,12 +1,62 @@
 import React from 'react';
-import { AppBar, Toolbar, Typography, Box, useTheme } from '@mui/material';
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  Box,
+  Avatar,
+  IconButton,
+  InputBase,
+  useTheme,
+  Menu,
+  MenuItem,
+  Divider,
+} from '@mui/material';
+import {
+  Search as SearchIcon,
+  Notifications as NotificationsIcon,
+  Logout as LogoutIcon,
+  ContentCopy as CopyIcon,
+  Menu as MenuIcon,
+} from '@mui/icons-material';
 import { motion } from 'framer-motion';
-import WalletConnect from './WalletConnect';
+import { useAccount, useDisconnect } from 'wagmi';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
 
-const DRAWER_WIDTH = 80;
+const DRAWER_WIDTH = 240;
 
-const TopNavbar: React.FC = () => {
+interface TopNavbarProps {
+  onMenuClick?: () => void;
+}
+
+const TopNavbar: React.FC<TopNavbarProps> = ({ onMenuClick }) => {
   const theme = useTheme();
+  const { address, isConnected } = useAccount();
+  const { disconnect } = useDisconnect();
+  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+
+  // Extract username from wallet address (first 6 chars)
+  const username = address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'User';
+
+  const handleAvatarClick = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleCopyAddress = () => {
+    if (address) {
+      navigator.clipboard.writeText(address);
+      handleClose();
+    }
+  };
+
+  const handleDisconnect = () => {
+    disconnect();
+    handleClose();
+  };
 
   return (
     <AppBar
@@ -23,37 +73,137 @@ const TopNavbar: React.FC = () => {
         },
         backgroundColor: 'white',
         borderBottom: `1px solid ${theme.palette.divider}`,
-        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
       }}
     >
-      <Toolbar>
+      <Toolbar sx={{ justifyContent: 'space-between' }}>
+        {/* Mobile Menu Button */}
+        <IconButton
+          color="inherit"
+          aria-label="open drawer"
+          edge="start"
+          onClick={onMenuClick}
+          sx={{ mr: 2, display: { sm: 'none' }, color: 'text.primary' }}
+        >
+          <MenuIcon />
+        </IconButton>
+
+        {/* Welcome Message */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <Typography
-            variant="h5"
-            component="div"
-            sx={{
-              flexGrow: 1,
-              color: theme.palette.text.primary,
-              fontWeight: 600,
-            }}
-          >
-            Dashboard
-          </Typography>
+          {isConnected ? (
+            <Typography
+              variant="h5"
+              component="div"
+              sx={{
+                color: theme.palette.text.primary,
+                fontWeight: 400,
+              }}
+            >
+              Welcome Back,{' '}
+              <Box component="span" sx={{ fontWeight: 700 }}>
+                {username}
+              </Box>
+            </Typography>
+          ) : (
+            <Typography
+              variant="h5"
+              component="div"
+              sx={{
+                color: theme.palette.text.primary,
+                fontWeight: 600,
+              }}
+            >
+              Wonderland Wallet
+            </Typography>
+          )}
         </motion.div>
 
-        <Box sx={{ flexGrow: 1 }} />
+        {/* Right Side - Search, Notifications, Avatar or Connect */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          {isConnected && (
+            <>
+              {/* Search Bar */}
+              <Box
+                sx={{
+                  display: { xs: 'none', md: 'flex' },
+                  alignItems: 'center',
+                  backgroundColor: theme.palette.grey[100],
+                  borderRadius: 2,
+                  px: 2,
+                  py: 0.5,
+                }}
+              >
+                <SearchIcon sx={{ color: theme.palette.text.secondary, mr: 1 }} />
+                <InputBase placeholder="Search" sx={{ width: 200 }} />
+              </Box>
 
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-        >
-          <WalletConnect />
-        </motion.div>
+              {/* Notifications */}
+              <IconButton>
+                <NotificationsIcon />
+              </IconButton>
+
+              {/* User Avatar */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+              >
+                <Avatar
+                  onClick={handleAvatarClick}
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    bgcolor: theme.palette.primary.main,
+                    cursor: 'pointer',
+                    '&:hover': {
+                      opacity: 0.8,
+                    },
+                  }}
+                >
+                  {username.charAt(0).toUpperCase()}
+                </Avatar>
+              </motion.div>
+
+              {/* Avatar Menu */}
+              <Menu
+                anchorEl={anchorEl}
+                open={Boolean(anchorEl)}
+                onClose={handleClose}
+                anchorOrigin={{
+                  vertical: 'bottom',
+                  horizontal: 'right',
+                }}
+                transformOrigin={{
+                  vertical: 'top',
+                  horizontal: 'right',
+                }}
+              >
+                <Box sx={{ px: 2, py: 1 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Wallet Address
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontFamily: 'monospace', mt: 0.5 }}>
+                    {username}
+                  </Typography>
+                </Box>
+                <Divider />
+                <MenuItem onClick={handleCopyAddress}>
+                  <CopyIcon sx={{ mr: 1, fontSize: 20 }} />
+                  Copy Address
+                </MenuItem>
+                <MenuItem onClick={handleDisconnect}>
+                  <LogoutIcon sx={{ mr: 1, fontSize: 20 }} />
+                  Disconnect
+                </MenuItem>
+              </Menu>
+            </>
+          )}
+
+          {!isConnected && <ConnectButton />}
+        </Box>
       </Toolbar>
     </AppBar>
   );

@@ -55,12 +55,15 @@ const Balances: React.FC = () => {
                 <ListItem
                   disablePadding
                   sx={{
-                    py: 1.5,
-                    px: 2,
+                    py: { xs: 1.5, md: 2 },
+                    px: { xs: 1.5, md: 2 },
                     borderRadius: 2,
                     border: '1px solid',
                     borderColor: 'divider',
                     mb: 1,
+                    flexDirection: { xs: 'column', sm: 'row' },
+                    alignItems: { xs: 'flex-start', sm: 'center' },
+                    gap: { xs: 1, sm: 0 },
                     '&:hover': {
                       backgroundColor: 'action.hover',
                       borderColor: 'primary.main',
@@ -68,31 +71,45 @@ const Balances: React.FC = () => {
                     transition: 'all 0.2s ease-in-out',
                   }}
                 >
-                  <ListItemIcon sx={{ minWidth: 48 }}>
-                    <TokenIcon symbol={balance.symbol} size={32} />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={
-                      <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                        {balance.symbol}
-                      </Typography>
-                    }
-                    secondary={
-                      <Typography variant="body2" color="text.secondary">
-                        {balance.symbol === 'DAI' ? 'Dai Stablecoin' : 'USD Coin'}
-                      </Typography>
-                    }
-                  />
                   <Box
                     sx={{
                       display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'flex-end',
-                      gap: 0.5,
+                      alignItems: 'center',
+                      width: { xs: '100%', sm: 'auto' },
                     }}
                   >
-                    <Box sx={{ textAlign: 'right' }}>
-                      <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                    <ListItemIcon sx={{ minWidth: 48 }}>
+                      <TokenIcon symbol={balance.symbol} size={32} />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={
+                        <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                          {balance.symbol}
+                        </Typography>
+                      }
+                      secondary={
+                        <Typography variant="body2" color="text.secondary">
+                          {balance.symbol === 'DAI' ? 'Dai Stablecoin' : 'USD Coin'}
+                        </Typography>
+                      }
+                    />
+                  </Box>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexDirection: { xs: 'row', sm: 'column' },
+                      justifyContent: { xs: 'space-between', sm: 'flex-end' },
+                      alignItems: { xs: 'center', sm: 'flex-end' },
+                      gap: { xs: 2, sm: 0.5 },
+                      width: { xs: '100%', sm: 'auto' },
+                      ml: { xs: 0, sm: 'auto' },
+                    }}
+                  >
+                    <Box sx={{ textAlign: { xs: 'left', sm: 'right' } }}>
+                      <Typography
+                        variant="h6"
+                        sx={{ fontWeight: 600, fontSize: { xs: '1rem', sm: '1.25rem' } }}
+                      >
                         {balance.balance}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
@@ -100,7 +117,7 @@ const Balances: React.FC = () => {
                       </Typography>
                     </Box>
                     {balance.price && (
-                      <Box sx={{ textAlign: 'right' }}>
+                      <Box sx={{ textAlign: { xs: 'right', sm: 'right' } }}>
                         <Typography variant="body2" sx={{ fontWeight: 500 }}>
                           {balance.price}
                         </Typography>

@@ -11,12 +11,20 @@ const TokenIcon: React.FC<TokenIconProps> = ({ symbol, size = 24 }) => {
   const getTokenIcon = (token: string) => {
     const tokenLower = token.toLowerCase();
 
+    // Map custom symbols WT6/WT18 to known icons
+    const aliasMap: Record<string, string> = {
+      wt6: 'usdc',
+      wt18: 'dai',
+    };
+
+    const resolved = aliasMap[tokenLower] || tokenLower;
+
     const iconMap: Record<string, string> = {
       dai: '/dai.svg',
       usdc: '/usdc.svg',
     };
 
-    return iconMap[tokenLower] || iconMap.dai;
+    return iconMap[resolved] || iconMap.dai;
   };
 
   return (

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Card, CardContent, Typography, Button, Container } from '@mui/material';
+import { Box, Card, CardContent, Typography, Container } from '@mui/material';
 import { motion } from 'framer-motion';
 import WalletConnect from './WalletConnect';
 

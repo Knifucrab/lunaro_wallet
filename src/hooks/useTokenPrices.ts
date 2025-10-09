@@ -47,10 +47,11 @@ export function useTokenPrices() {
 
     fetchPrices();
 
-    // Refresh prices every 60 seconds
-    const interval = setInterval(fetchPrices, 60000);
-
-    return () => clearInterval(interval);
+    // No automatic polling: prices are fetched once on mount. Manual refetch can be
+    // implemented if needed.
+    return () => {
+      /* nothing to clean up */
+    };
   }, []);
 
   return { prices, loading, error };

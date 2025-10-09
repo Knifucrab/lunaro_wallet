@@ -129,12 +129,12 @@ const EventTable: React.FC = () => {
                     <TableCell sx={{ fontWeight: 500 }}>{event.amount}</TableCell>
                     <TableCell>
                       <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                        {event.sender.slice(0, 6)}...{event.sender.slice(-4)}
+                        {event.from.slice(0, 6)}...{event.from.slice(-4)}
                       </Typography>
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                        {event.recipient.slice(0, 6)}...{event.recipient.slice(-4)}
+                        {event.to.slice(0, 6)}...{event.to.slice(-4)}
                       </Typography>
                     </TableCell>
                     <TableCell>

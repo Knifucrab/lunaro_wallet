@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -9,6 +9,7 @@ import {
   IconButton,
   Divider,
   Avatar,
+  Alert,
 } from '@mui/material';
 import {
   VisibilityOutlined as ViewIcon,
@@ -17,13 +18,13 @@ import {
   ArrowDownward as IncomingIcon,
   CheckCircle as ApprovalIcon,
   OpenInNew as ExternalIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
-import { useAppContext } from '../context/useAppContext';
-import { useHistoricalEvents } from '../hooks/useHistoricalEvents';
 import { useAccount } from 'wagmi';
 import TokenIcon from './TokenIcon';
-import type { EventLog } from '../context/AppContext';
+import { useEtherscanTransactions } from '../hooks/useEtherscanTransactions';
+import { formatUnits } from 'viem';
 
 interface ProcessedEvent {
   id: string;
@@ -41,73 +42,77 @@ interface GroupedEvent {
 }
 
 const TransactionHistory: React.FC = () => {
-  const { events } = useAppContext();
-  const { loading } = useHistoricalEvents();
   const { address: userAddress } = useAccount();
+  const { tokenTransactions, loading, error, refetch } = useEtherscanTransactions();
   const [modalOpen, setModalOpen] = useState(false);
 
-  const formatDate = (timestamp: number): string => {
+  // Combine and process all transactions
+  const allProcessedEvents = useMemo(() => {
+    console.log('Processing token transfers:', {
+      tokenCount: tokenTransactions.length,
+      userAddress,
+    });
+
+    const processed: ProcessedEvent[] = [];
+
+    // Process ERC20 token transactions only
+    tokenTransactions.forEach((tx) => {
+      const isIncoming = tx.to?.toLowerCase() === userAddress?.toLowerCase();
+      const type = isIncoming ? 'incoming' : 'outgoing';
+      const decimals = parseInt(tx.tokenDecimal);
+
+      processed.push({
+        id: tx.hash,
+        type,
+        token: tx.tokenSymbol,
+        amount: formatUnits(BigInt(tx.value), decimals),
+        address: isIncoming ? tx.from : tx.to,
+        txHash: tx.hash,
+        timestamp: parseInt(tx.timeStamp) * 1000, // Convert to milliseconds
+      });
+    });
+
+    console.log(`Processed ${processed.length} total transactions`);
+
+    // Sort by timestamp (most recent first)
+    return processed.sort((a, b) => b.timestamp - a.timestamp);
+  }, [tokenTransactions, userAddress]);
+
+  const formatDate = React.useCallback((timestamp: number): string => {
     const date = new Date(timestamp);
     const now = new Date();
     const diffInDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
 
-    // Quick date formatting - could probably clean this up
     if (diffInDays === 0) return 'Today';
     if (diffInDays === 1) return 'Yesterday';
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  };
+  }, []);
 
-  const processEvents = (events: EventLog[]): ProcessedEvent[] => {
-    return events.map((event) => {
-      const isIncoming = event.to?.toLowerCase() === userAddress?.toLowerCase();
-      const isOutgoing = event.from?.toLowerCase() === userAddress?.toLowerCase();
+  const groupEventsByDate = React.useCallback(
+    (processedEvents: ProcessedEvent[]): GroupedEvent[] => {
+      const groups: { [key: string]: ProcessedEvent[] } = {};
 
-      let type: 'incoming' | 'outgoing' | 'approval';
-      let address: string;
+      processedEvents.forEach((event) => {
+        const dateKey = formatDate(event.timestamp);
+        if (!groups[dateKey]) {
+          groups[dateKey] = [];
+        }
+        groups[dateKey].push(event);
+      });
 
-      if (event.type === 'approval') {
-        type = 'approval';
-        address = event.to || 'Unknown';
-      } else if (isIncoming && !isOutgoing) {
-        type = 'incoming';
-        address = event.from || 'Unknown';
-      } else {
-        type = 'outgoing';
-        address = event.to || 'Unknown';
-      }
+      return Object.entries(groups).map(([date, events]) => ({
+        date,
+        events,
+      }));
+    },
+    [formatDate],
+  );
 
-      return {
-        id: event.id || event.txHash || `${Date.now()}-${Math.random()}`,
-        type,
-        token: event.token || 'UNKNOWN',
-        amount: event.amount || '0',
-        address,
-        txHash: event.txHash || '',
-        timestamp: event.timestamp || Date.now(),
-      };
-    });
-  };
-
-  const groupEventsByDate = (processedEvents: ProcessedEvent[]): GroupedEvent[] => {
-    const groups: { [key: string]: ProcessedEvent[] } = {};
-
-    processedEvents.forEach((event) => {
-      const dateKey = formatDate(event.timestamp);
-      if (!groups[dateKey]) {
-        groups[dateKey] = [];
-      }
-      groups[dateKey].push(event);
-    });
-
-    return Object.entries(groups).map(([date, events]) => ({
-      date,
-      events,
-    }));
-  };
-
-  const processedEvents = processEvents(events);
-  const groupedEvents = groupEventsByDate(processedEvents);
-  const recentTransactions = processedEvents.slice(0, 4); // Show only last 4 transactions
+  const groupedEvents = useMemo(
+    () => groupEventsByDate(allProcessedEvents),
+    [allProcessedEvents, groupEventsByDate],
+  );
+  const recentTransactions = useMemo(() => allProcessedEvents.slice(0, 4), [allProcessedEvents]); // Show only last 4 transactions
 
   const formatAmount = (amount: string, token: string, type: string) => {
     const prefix = type === 'incoming' ? '+' : type === 'outgoing' ? '-' : '';
@@ -145,14 +150,8 @@ const TransactionHistory: React.FC = () => {
     }
   };
 
-  const TransactionRow = ({
-    event,
-    animate = false,
-  }: {
-    event: ProcessedEvent;
-    animate?: boolean;
-  }) => {
-    const content = (
+  const TransactionRowInner = ({ event }: { event: ProcessedEvent }) => {
+    return (
       <Box
         sx={{
           display: 'flex',
@@ -205,21 +204,25 @@ const TransactionHistory: React.FC = () => {
         </Box>
       </Box>
     );
-
-    if (animate) {
-      return (
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.3 }}
-        >
-          {content}
-        </motion.div>
-      );
-    }
-
-    return content;
   };
+
+  const TransactionRow = React.memo(
+    ({ event, animate = false }: { event: ProcessedEvent; animate?: boolean }) => {
+      if (animate) {
+        return (
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <TransactionRowInner event={event} />
+          </motion.div>
+        );
+      }
+
+      return <TransactionRowInner event={event} />;
+    },
+  );
 
   if (loading) {
     return (
@@ -252,23 +255,36 @@ const TransactionHistory: React.FC = () => {
             <Typography variant="h6" sx={{ fontWeight: 600 }}>
               Last transactions
             </Typography>
-            {events.length > 0 && (
-              <Button
-                variant="outlined"
-                startIcon={<ViewIcon />}
-                onClick={() => setModalOpen(true)}
-                size="small"
-              >
-                View All
-              </Button>
-            )}
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <IconButton size="small" onClick={refetch} disabled={loading}>
+                <RefreshIcon fontSize="small" />
+              </IconButton>
+              {allProcessedEvents.length > 0 && (
+                <Button
+                  variant="outlined"
+                  startIcon={<ViewIcon />}
+                  onClick={() => setModalOpen(true)}
+                  size="small"
+                >
+                  View All
+                </Button>
+              )}
+            </Box>
           </Box>
 
           {recentTransactions.length === 0 ? (
             <Box sx={{ textAlign: 'center', py: 4 }}>
-              <Typography variant="body2" color="text.secondary">
-                No transactions found. Start by minting, approving, or transferring tokens.
-              </Typography>
+              {error ? (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  {error}
+                </Alert>
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  {loading
+                    ? 'Loading transactions from Sepolia Etherscan...'
+                    : 'No transactions found. Start by sending or receiving tokens.'}
+                </Typography>
+              )}
             </Box>
           ) : (
             <Box>
@@ -278,10 +294,10 @@ const TransactionHistory: React.FC = () => {
                   {index < recentTransactions.length - 1 && <Divider sx={{ my: 1 }} />}
                 </Box>
               ))}
-              {events.length > 4 && (
+              {allProcessedEvents.length > 4 && (
                 <Box sx={{ textAlign: 'center', mt: 2 }}>
                   <Typography variant="caption" color="text.secondary">
-                    Showing {recentTransactions.length} of {events.length} transactions
+                    Showing {recentTransactions.length} of {allProcessedEvents.length} transactions
                   </Typography>
                 </Box>
               )}
@@ -312,7 +328,7 @@ const TransactionHistory: React.FC = () => {
             sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}
           >
             <Typography variant="h5" sx={{ fontWeight: 600 }}>
-              All Transactions ({events.length})
+              All Transactions ({allProcessedEvents.length})
             </Typography>
             <IconButton onClick={() => setModalOpen(false)}>
               <CloseIcon />

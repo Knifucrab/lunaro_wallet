@@ -12,8 +12,9 @@ import TopNavbar from './components/TopNavbar';
 import NotConnected from './components/NotConnected';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
+import Wallet from './pages/Wallet';
 
-const DRAWER_WIDTH = 80;
+// drawer width is managed inside Sidebar component; constant removed to avoid unused variable
 
 const NetworkWarning: React.FC = () => {
   const chainId = useChainId();
@@ -59,35 +60,46 @@ const NetworkWarning: React.FC = () => {
 
 const App: React.FC = () => {
   const { isConnected } = useAccount();
+  const [mobileOpen, setMobileOpen] = React.useState(false);
+
+  const handleDrawerToggle = () => {
+    setMobileOpen(!mobileOpen);
+  };
 
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Router>
         <Box sx={{ display: 'flex', minHeight: '100vh', width: '100%' }}>
-          <Sidebar open={true} />
+          <Sidebar open={mobileOpen} onClose={handleDrawerToggle} />
           <Box
             component="main"
             sx={{
               flexGrow: 1,
-              width: { xs: '100%', sm: `calc(100% - ${DRAWER_WIDTH}px)` },
               minHeight: '100vh',
               backgroundColor: 'background.default',
-              ml: { xs: 0, sm: `${DRAWER_WIDTH}px` },
+              width: '100%',
             }}
           >
-            <TopNavbar />
+            <TopNavbar onMenuClick={handleDrawerToggle} />
             <AnimatePresence>
               <NetworkWarning />
             </AnimatePresence>
 
-            <Box sx={{ mt: 8, p: { xs: 2, sm: 3 }, width: '100%', maxWidth: 'none' }}>
+            <Box
+              sx={{
+                mt: 8,
+                p: { xs: 2, sm: 3 },
+                width: '100%',
+              }}
+            >
               {!isConnected ? (
                 <NotConnected />
               ) : (
                 <Routes>
                   <Route path="/" element={<Home />} />
                   <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/wallet" element={<Wallet />} />
                 </Routes>
               )}
             </Box>

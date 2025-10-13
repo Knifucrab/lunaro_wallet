@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useAccount, useReadContract } from 'wagmi';
-import { useAppContext } from '../context/useAppContext';
 import { erc20Abi } from 'viem';
 import { useTokenPrices } from './useTokenPrices';
 
@@ -27,7 +26,6 @@ export interface WalletStats {
 
 export function useWalletStats() {
   const { address } = useAccount();
-  const { events } = useAppContext();
   const { prices } = useTokenPrices();
   const [stats, setStats] = useState<WalletStats>({
     totalAssets: 0,
@@ -88,8 +86,8 @@ export function useWalletStats() {
         priceChange24h: weightedChange,
       });
     }
-    // Re-run when relevant on-chain data, prices, or app events (transfer/mint add events)
-  }, [address, daiBalance.data, usdcBalance.data, prices, events.length]);
+    // Re-run when relevant on-chain data or prices change
+  }, [address, daiBalance.data, usdcBalance.data, prices]);
 
   return stats;
 }

@@ -25,9 +25,9 @@ import {
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import { useAccount, useWriteContract } from 'wagmi';
+import { useQueryClient } from '@tanstack/react-query';
 import { erc20Abi } from 'viem';
 import { useAppContext } from '../context/useAppContext';
-import type { Token } from '../context/AppContext';
 import TokenIcon from './TokenIcon';
 
 // Token configuration - TODO: move to config file eventually
@@ -46,7 +46,8 @@ const TOKENS = [
 
 const ApproveTransfer: React.FC = () => {
   const { address } = useAccount();
-  const { balances, addEvent } = useAppContext();
+  const { balances } = useAppContext();
+  const queryClient = useQueryClient();
 
   // Form state - keeping it simple for now
   const [token, setToken] = useState('DAI');
@@ -75,22 +76,13 @@ const ApproveTransfer: React.FC = () => {
     if (err) return setError(err);
     setLoading(true);
     try {
-      const tx = await writeContractAsync({
+      await writeContractAsync({
         address: selectedToken.address as `0x${string}`,
         abi: erc20Abi,
         functionName: 'approve',
         args: [recipient as `0x${string}`, BigInt(Number(amount) * 10 ** selectedToken.decimals)],
       });
-      addEvent({
-        id: `${tx}-${Date.now()}`,
-        type: 'approval',
-        token: token as Token,
-        amount,
-        from: address!,
-        to: recipient,
-        txHash: tx,
-        timestamp: Date.now(),
-      });
+      queryClient.invalidateQueries();
     } catch (e: unknown) {
       const error = e as Error;
       setError(error.message || 'Approve failed');
@@ -104,22 +96,13 @@ const ApproveTransfer: React.FC = () => {
     if (err) return setError(err);
     setLoading(true);
     try {
-      const tx = await writeContractAsync({
+      await writeContractAsync({
         address: selectedToken.address as `0x${string}`,
         abi: erc20Abi,
         functionName: 'transfer',
         args: [recipient as `0x${string}`, BigInt(Number(amount) * 10 ** selectedToken.decimals)],
       });
-      addEvent({
-        id: `${tx}-${Date.now()}`,
-        type: 'transfer',
-        token: token as Token,
-        amount,
-        from: address!,
-        to: recipient,
-        txHash: tx,
-        timestamp: Date.now(),
-      });
+      queryClient.invalidateQueries();
     } catch (e: unknown) {
       const error = e as Error;
       setError(error.message || 'Transfer failed');

@@ -3,11 +3,9 @@ import { Box, Stack } from '@mui/material';
 import { motion } from 'framer-motion';
 import Balances from '../components/Balances';
 import { useTokenBalances } from '../hooks/useTokenBalances';
-import { useHistoricalEvents } from '../hooks/useHistoricalEvents';
 
 const Wallet: React.FC = () => {
   useTokenBalances();
-  useHistoricalEvents();
 
   return (
     <motion.div

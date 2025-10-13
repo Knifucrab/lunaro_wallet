@@ -23,6 +23,7 @@ import {
 } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAccount, useWriteContract } from 'wagmi';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   TrendingUp,
   TrendingDown,
@@ -33,7 +34,6 @@ import {
 import { erc20Abi } from 'viem';
 import TokenIcon from './TokenIcon';
 import { useAppContext } from '../context/useAppContext';
-import type { Token } from '../context/AppContext';
 
 // Extended ABI for mint function
 const erc20WithMintAbi = [
@@ -77,7 +77,8 @@ const TotalBalanceCard: React.FC<TotalBalanceCardProps> = ({
 }) => {
   const theme = useTheme();
   const { address } = useAccount();
-  const { balances, addEvent } = useAppContext();
+  const { balances } = useAppContext();
+  const queryClient = useQueryClient();
   const { writeContractAsync } = useWriteContract();
 
   const username = address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'User';
@@ -126,16 +127,8 @@ const TotalBalanceCard: React.FC<TotalBalanceCardProps> = ({
         functionName: 'approve',
         args: [recipient as `0x${string}`, BigInt(Number(amount) * 10 ** selectedToken.decimals)],
       });
-      addEvent({
-        id: `${tx}-${Date.now()}`,
-        type: 'approval',
-        token: token as Token,
-        amount,
-        from: address!,
-        to: recipient,
-        txHash: tx,
-        timestamp: Date.now(),
-      });
+      // Invalidate queries so balances and stats refresh after the transaction
+      queryClient.invalidateQueries();
       setSuccess(`Approved successfully! Tx: ${tx.slice(0, 10)}...`);
       setAmount('');
       setRecipient('');
@@ -160,16 +153,7 @@ const TotalBalanceCard: React.FC<TotalBalanceCardProps> = ({
         functionName: 'transfer',
         args: [recipient as `0x${string}`, BigInt(Number(amount) * 10 ** selectedToken.decimals)],
       });
-      addEvent({
-        id: `${tx}-${Date.now()}`,
-        type: 'transfer',
-        token: token as Token,
-        amount,
-        from: address!,
-        to: recipient,
-        txHash: tx,
-        timestamp: Date.now(),
-      });
+      queryClient.invalidateQueries();
       setSuccess(`Transferred successfully! Tx: ${tx.slice(0, 10)}...`);
       setAmount('');
       setRecipient('');
@@ -196,16 +180,7 @@ const TotalBalanceCard: React.FC<TotalBalanceCardProps> = ({
         functionName: 'mint',
         args: [address, BigInt(Number(mintAmount) * 10 ** selectedMintToken.decimals)],
       });
-      addEvent({
-        id: `${tx}-${Date.now()}`,
-        type: 'transfer',
-        token: mintToken as Token,
-        amount: mintAmount,
-        from: '0x0000000000000000000000000000000000000000',
-        to: address!,
-        txHash: tx,
-        timestamp: Date.now(),
-      });
+      queryClient.invalidateQueries();
       setSuccess(`Minted ${mintAmount} ${mintToken} successfully! Tx: ${tx.slice(0, 10)}...`);
     } catch (e: unknown) {
       const error = e as Error;

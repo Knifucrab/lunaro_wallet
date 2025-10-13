@@ -19,9 +19,9 @@ import {
 import { Token as TokenIcon } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import { useAccount, useWriteContract } from 'wagmi';
+import { useQueryClient } from '@tanstack/react-query';
 import { erc20Abi } from 'viem';
-import { useAppContext } from '../context/useAppContext';
-import type { Token } from '../context/AppContext';
+// no longer using AppContext events
 import TokenIconComponent from './TokenIcon';
 
 // Extended ABI that includes the mint function
@@ -54,8 +54,8 @@ const TOKENS = [
 
 const MintToken: React.FC = () => {
   const { address } = useAccount();
-  const { addEvent } = useAppContext();
   const { writeContractAsync } = useWriteContract();
+  const queryClient = useQueryClient();
   const [token, setToken] = useState('DAI');
   const [amount, setAmount] = useState('100');
   const [loading, setLoading] = useState(false);
@@ -81,18 +81,8 @@ const MintToken: React.FC = () => {
         args: [address, BigInt(Number(amount) * 10 ** selectedToken.decimals)],
       });
 
-      // Add mint event to context (we'll show it as a transfer from 0x0 to the user)
-      addEvent({
-        id: `${tx}-${Date.now()}`,
-        type: 'transfer',
-        token: token as Token,
-        amount,
-        from: '0x0000000000000000000000000000000000000000', // Mint is from zero address
-        to: address!,
-        txHash: tx,
-        timestamp: Date.now(),
-      });
-
+      // Refresh queries so balances/stats update after minting
+      queryClient.invalidateQueries();
       setSuccess(`Minted successfully! Transaction: ${tx}`);
     } catch (e: unknown) {
       const error = e as Error;

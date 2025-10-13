@@ -11,7 +11,7 @@ import { AppProvider } from './context/AppContext.tsx';
 
 const config = getDefaultConfig({
   appName: 'Blockchain Frontend Challenge',
-  projectId: 'YOUR_PROJECT_ID', // Replace with your WalletConnect Project ID
+  projectId: 'YOUR_PROJECT_ID',
   chains: [sepolia],
   transports: {
     [sepolia.id]: http(),

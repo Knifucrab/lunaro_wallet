@@ -4,12 +4,12 @@ export const theme = createTheme({
   palette: {
     mode: 'light',
     primary: {
-      main: '#1976d2', // Modern blue
-      light: '#42a5f5',
-      dark: '#1565c0',
+      main: '#000000ff', // Modern blue
+      light: '#8f98a0ff',
+      dark: '#8b8e91ff',
     },
     secondary: {
-      main: '#2196f3',
+      main: '#313131ff',
     },
     background: {
       default: '#f8fafc',

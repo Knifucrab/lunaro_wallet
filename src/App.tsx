@@ -14,13 +14,12 @@ import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import Wallet from './pages/Wallet';
 
-// drawer width is managed inside Sidebar component; constant removed to avoid unused variable
-
 const NetworkWarning: React.FC = () => {
   const chainId = useChainId();
   const { switchChain } = useSwitchChain();
 
   if (chainId !== sepolia.id) {
+    // Non tested button.
     return (
       <motion.div
         initial={{ opacity: 0, y: -50 }}

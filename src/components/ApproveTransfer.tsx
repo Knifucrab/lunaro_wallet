@@ -11,6 +11,7 @@ import {
   MenuItem,
   Alert,
   Box,
+  Modal,
   Stack,
   Chip,
   CircularProgress,
@@ -24,10 +25,8 @@ import {
   Info as InfoIcon,
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
-import { useAccount, useWriteContract } from 'wagmi';
-import { useQueryClient } from '@tanstack/react-query';
-import { erc20Abi } from 'viem';
 import { useAppContext } from '../context/useAppContext';
+import useTokenActions from '../hooks/useTokenActions';
 import TokenIcon from './TokenIcon';
 
 // Token configuration - TODO: move to config file eventually
@@ -45,69 +44,62 @@ const TOKENS = [
 ];
 
 const ApproveTransfer: React.FC = () => {
-  const { address } = useAccount();
   const { balances } = useAppContext();
-  const queryClient = useQueryClient();
 
   // Form state - keeping it simple for now
   const [token, setToken] = useState('DAI');
   const [recipient, setRecipient] = useState('');
   const [amount, setAmount] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const { writeContractAsync } = useWriteContract();
+  const {
+    approve,
+    transfer,
+    loading,
+    error,
+    success,
+    modalOpen,
+    modalTitle,
+    modalContent,
+    setModalOpen,
+    setError: setHookError,
+    setSuccess: setHookSuccess,
+  } = useTokenActions();
 
   const selectedToken = TOKENS.find((t) => t.symbol === token)!;
   const balance = balances.find((b) => b.symbol === token)?.balance || '0';
 
-  // Basic validation - could be more robust
-  const validate = () => {
-    if (!address) return 'Connect your wallet.';
-    if (!recipient) return 'Recipient is required.';
-    if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) return 'Enter a valid amount.';
-    if (Number(amount) > Number(balance.replace(/,/g, ''))) return 'Not enough funds.';
-    return '';
-  };
+  // clear hook messages when token changes
+  React.useEffect(() => {
+    setHookError('');
+    setHookSuccess('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
   const handleApprove = async () => {
-    setError('');
-    const err = validate();
-    if (err) return setError(err);
-    setLoading(true);
-    try {
-      await writeContractAsync({
-        address: selectedToken.address as `0x${string}`,
-        abi: erc20Abi,
-        functionName: 'approve',
-        args: [recipient as `0x${string}`, BigInt(Number(amount) * 10 ** selectedToken.decimals)],
-      });
-      queryClient.invalidateQueries();
-    } catch (e: unknown) {
-      const error = e as Error;
-      setError(error.message || 'Approve failed');
-    }
-    setLoading(false);
+    await approve({
+      tokenAddress: selectedToken.address as `0x${string}`,
+      decimals: selectedToken.decimals,
+      recipient,
+      amount,
+      balance,
+      onSuccess: () => {
+        setAmount('');
+        setRecipient('');
+      },
+    });
   };
 
   const handleTransfer = async () => {
-    setError('');
-    const err = validate();
-    if (err) return setError(err);
-    setLoading(true);
-    try {
-      await writeContractAsync({
-        address: selectedToken.address as `0x${string}`,
-        abi: erc20Abi,
-        functionName: 'transfer',
-        args: [recipient as `0x${string}`, BigInt(Number(amount) * 10 ** selectedToken.decimals)],
-      });
-      queryClient.invalidateQueries();
-    } catch (e: unknown) {
-      const error = e as Error;
-      setError(error.message || 'Transfer failed');
-    }
-    setLoading(false);
+    await transfer({
+      tokenAddress: selectedToken.address as `0x${string}`,
+      decimals: selectedToken.decimals,
+      recipient,
+      amount,
+      balance,
+      onSuccess: () => {
+        setAmount('');
+        setRecipient('');
+      },
+    });
   };
 
   return (
@@ -132,6 +124,7 @@ const ApproveTransfer: React.FC = () => {
               <Select
                 value={token}
                 onChange={(e) => setToken(e.target.value)}
+                disabled={loading}
                 label="Token"
                 renderValue={(value) => (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -160,6 +153,7 @@ const ApproveTransfer: React.FC = () => {
               label="Recipient Address"
               value={recipient}
               onChange={(e) => setRecipient(e.target.value)}
+              disabled={loading}
               placeholder="0x..."
               helperText="Enter the Ethereum address of the recipient"
               InputProps={{
@@ -191,6 +185,7 @@ const ApproveTransfer: React.FC = () => {
               type="number"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
+              disabled={loading}
               placeholder="0.0"
               InputProps={{
                 endAdornment: (
@@ -213,14 +208,52 @@ const ApproveTransfer: React.FC = () => {
               }
             />
 
-            {/* Error Alert */}
+            {/* Error / Success Alerts (short messages) */}
             {error && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.2 }}
               >
-                <Alert severity="error">{error}</Alert>
+                <Alert
+                  severity="error"
+                  action={
+                    <Button
+                      size="small"
+                      onClick={() => {
+                        setModalOpen(true);
+                      }}
+                    >
+                      Show the error
+                    </Button>
+                  }
+                >
+                  {error}
+                </Alert>
+              </motion.div>
+            )}
+
+            {success && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.2 }}
+              >
+                <Alert
+                  severity="success"
+                  action={
+                    <Button
+                      size="small"
+                      onClick={() => {
+                        setModalOpen(true);
+                      }}
+                    >
+                      Check details
+                    </Button>
+                  }
+                >
+                  {success}
+                </Alert>
               </motion.div>
             )}
 
@@ -264,6 +297,53 @@ const ApproveTransfer: React.FC = () => {
                 {loading ? 'Transferring...' : 'Transfer'}
               </Button>
             </Stack>
+            {/* Details Modal */}
+            <Modal open={modalOpen} onClose={() => setModalOpen(false)}>
+              <Box
+                sx={{
+                  position: 'absolute' as const,
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  bgcolor: 'background.paper',
+                  boxShadow: 24,
+                  p: 3,
+                  borderRadius: 2,
+                  width: { xs: '90%', sm: 500 },
+                  maxHeight: '80vh',
+                  overflow: 'auto',
+                }}
+              >
+                <Typography variant="h6" sx={{ mb: 2 }}>
+                  {modalTitle}
+                </Typography>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    overflowWrap: 'break-word',
+                    mb: 2,
+                  }}
+                >
+                  {modalContent}
+                </Typography>
+                {modalTitle === 'Transaction' && (
+                  <Button
+                    variant="contained"
+                    size="small"
+                    onClick={() =>
+                      window.open(`https://sepolia.etherscan.io/tx/${modalContent}`, '_blank')
+                    }
+                  >
+                    View on Etherscan
+                  </Button>
+                )}
+                <Button sx={{ ml: 1 }} onClick={() => setModalOpen(false)}>
+                  Close
+                </Button>
+              </Box>
+            </Modal>
           </Stack>
         </CardContent>
       </Card>

@@ -10,6 +10,7 @@ import {
   Select,
   MenuItem,
   Alert,
+  Modal,
   Box,
   Stack,
   Chip,
@@ -18,26 +19,9 @@ import {
 } from '@mui/material';
 import { Token as TokenIcon } from '@mui/icons-material';
 import { motion } from 'framer-motion';
-import { useAccount, useWriteContract } from 'wagmi';
-import { useQueryClient } from '@tanstack/react-query';
-import { erc20Abi } from 'viem';
+import useTokenActions from '../hooks/useTokenActions';
 // no longer using AppContext events
 import TokenIconComponent from './TokenIcon';
-
-// Extended ABI that includes the mint function
-const erc20WithMintAbi = [
-  ...erc20Abi,
-  {
-    name: 'mint',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [
-      { name: 'to', type: 'address' },
-      { name: 'amount', type: 'uint256' },
-    ],
-    outputs: [],
-  },
-] as const;
 
 const TOKENS = [
   {
@@ -53,42 +37,22 @@ const TOKENS = [
 ];
 
 const MintToken: React.FC = () => {
-  const { address } = useAccount();
-  const { writeContractAsync } = useWriteContract();
-  const queryClient = useQueryClient();
+  const { mint, loading, error, success, modalOpen, modalTitle, modalContent, setModalOpen } =
+    useTokenActions();
   const [token, setToken] = useState('DAI');
   const [amount, setAmount] = useState('100');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
 
   const selectedToken = TOKENS.find((t) => t.symbol === token)!;
 
   const handleMint = async () => {
-    setError('');
-    setSuccess('');
-    if (!address) {
-      setError('Connect your wallet.');
-      return;
-    }
-    setLoading(true);
-    try {
-      // Use the extended ABI that includes the mint function
-      const tx = await writeContractAsync({
-        address: selectedToken.address as `0x${string}`,
-        abi: erc20WithMintAbi,
-        functionName: 'mint',
-        args: [address, BigInt(Number(amount) * 10 ** selectedToken.decimals)],
-      });
-
-      // Refresh queries so balances/stats update after minting
-      queryClient.invalidateQueries();
-      setSuccess(`Minted successfully! Transaction: ${tx}`);
-    } catch (e: unknown) {
-      const error = e as Error;
-      setError(error.message || 'Mint failed. This token may not support minting.');
-    }
-    setLoading(false);
+    await mint({
+      tokenAddress: selectedToken.address as `0x${string}`,
+      decimals: selectedToken.decimals,
+      mintAmount: amount,
+      onSuccess: () => {
+        setAmount('100');
+      },
+    });
   };
 
   return (
@@ -114,6 +78,7 @@ const MintToken: React.FC = () => {
                 value={token}
                 onChange={(e) => setToken(e.target.value)}
                 label="Token"
+                disabled={loading}
                 renderValue={(value) => (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <TokenIconComponent symbol={value} size={24} />
@@ -142,6 +107,7 @@ const MintToken: React.FC = () => {
               type="number"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
+              disabled={loading}
               placeholder="100"
               InputProps={{
                 endAdornment: (
@@ -164,7 +130,16 @@ const MintToken: React.FC = () => {
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.2 }}
               >
-                <Alert severity="error">{error}</Alert>
+                <Alert
+                  severity="error"
+                  action={
+                    <Button size="small" onClick={() => setModalOpen(true)}>
+                      Show the error
+                    </Button>
+                  }
+                >
+                  {error}
+                </Alert>
               </motion.div>
             )}
 
@@ -175,7 +150,16 @@ const MintToken: React.FC = () => {
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.2 }}
               >
-                <Alert severity="success">{success}</Alert>
+                <Alert
+                  severity="success"
+                  action={
+                    <Button size="small" onClick={() => setModalOpen(true)}>
+                      Show details
+                    </Button>
+                  }
+                >
+                  {success}
+                </Alert>
               </motion.div>
             )}
 
@@ -195,6 +179,53 @@ const MintToken: React.FC = () => {
             >
               {loading ? 'Minting...' : 'Mint Test Tokens'}
             </Button>
+            {/* Details Modal */}
+            <Modal open={modalOpen} onClose={() => setModalOpen(false)}>
+              <Box
+                sx={{
+                  position: 'absolute' as const,
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  bgcolor: 'background.paper',
+                  boxShadow: 24,
+                  p: 3,
+                  borderRadius: 2,
+                  width: { xs: '90%', sm: 500 },
+                  maxHeight: '80vh',
+                  overflow: 'auto',
+                }}
+              >
+                <Typography variant="h6" sx={{ mb: 2 }}>
+                  {modalTitle}
+                </Typography>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    overflowWrap: 'break-word',
+                    mb: 2,
+                  }}
+                >
+                  {modalContent}
+                </Typography>
+                {modalTitle === 'Transaction' && (
+                  <Button
+                    variant="contained"
+                    size="small"
+                    onClick={() =>
+                      window.open(`https://sepolia.etherscan.io/tx/${modalContent}`, '_blank')
+                    }
+                  >
+                    View on Etherscan
+                  </Button>
+                )}
+                <Button sx={{ ml: 1 }} onClick={() => setModalOpen(false)}>
+                  Close
+                </Button>
+              </Box>
+            </Modal>
           </Stack>
         </CardContent>
       </Card>

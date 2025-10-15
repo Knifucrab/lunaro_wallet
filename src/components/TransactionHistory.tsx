@@ -116,7 +116,11 @@ const TransactionHistory: React.FC = () => {
 
   const formatAmount = (amount: string, token: string, type: string) => {
     const prefix = type === 'incoming' ? '+' : type === 'outgoing' ? '-' : '';
-    return `${prefix}${parseFloat(amount).toFixed(2)} ${token}`;
+    const num = parseFloat(amount);
+    // If the value has a fractional component, show 2 decimals; otherwise show 0
+    const hasFraction = Math.abs(num - Math.trunc(num)) > 0;
+    const formatted = hasFraction ? num.toFixed(2) : num.toFixed(0);
+    return `${prefix}${formatted} ${token}`;
   };
 
   const formatAddress = (addr: string | undefined) => {

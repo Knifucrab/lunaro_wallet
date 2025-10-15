@@ -1,5 +1,14 @@
 import React from 'react';
-import { Container, Typography, Card, CardContent, Box, Button, Stack } from '@mui/material';
+import {
+  Container,
+  Typography,
+  Card,
+  CardContent,
+  Box,
+  Button,
+  Stack,
+  useTheme,
+} from '@mui/material';
 import {
   AccountBalanceWallet as WalletIcon,
   TrendingUp as TrendingIcon,
@@ -10,6 +19,7 @@ import { useNavigate } from 'react-router-dom';
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
+  const theme = useTheme();
 
   const features = [
     {
@@ -43,7 +53,7 @@ const Home: React.FC = () => {
             gutterBottom
             sx={{
               fontWeight: 700,
-              background: 'linear-gradient(45deg, #1976d2, #42a5f5)',
+              background: theme.palette.primary.main,
               backgroundClip: 'text',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',

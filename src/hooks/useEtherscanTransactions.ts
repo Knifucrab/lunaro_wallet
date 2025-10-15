@@ -2,8 +2,11 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAccount } from 'wagmi';
 
-// Sepolia Etherscan API base URL
-const SEPOLIA_API_URL = 'https://api-sepolia.etherscan.io/api';
+// Etherscan V2 API base URL (multichain API)
+const ETHERSCAN_V2_API_URL = 'https://api.etherscan.io/v2/api';
+
+// Sepolia testnet chain ID
+const SEPOLIA_CHAIN_ID = 11155111;
 
 // Read API key from Vite env. When running locally, put the key in a `.env.local` file
 // as VITE_ETHERSCAN_API_KEY=your_key and restart the dev server.
@@ -68,9 +71,10 @@ export const useEtherscanTransactions = (): UseEtherscanTransactionsResult => {
     setError(null);
 
     try {
-      // Fetch ERC20 token transfer events only
-      const tokenTxResponse = await axios.get(SEPOLIA_API_URL, {
+      // Fetch ERC20 token transfer events using V2 API
+      const tokenTxResponse = await axios.get(ETHERSCAN_V2_API_URL, {
         params: {
+          chainid: SEPOLIA_CHAIN_ID, // V2 API requires chainid parameter
           module: 'account',
           action: 'tokentx',
           address: address,

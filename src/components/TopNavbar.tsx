@@ -116,7 +116,7 @@ const TopNavbar: React.FC<TopNavbarProps> = ({ onMenuClick }) => {
                 fontWeight: 600,
               }}
             >
-              Wonderland Wallet
+              Lunaro
             </Typography>
           )}
         </motion.div>

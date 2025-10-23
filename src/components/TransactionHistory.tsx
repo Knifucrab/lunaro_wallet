@@ -23,6 +23,7 @@ import {
 import { motion } from 'framer-motion';
 import { useAccount } from 'wagmi';
 import TokenIcon from './TokenIcon';
+import { FixedSizeList } from 'react-window';
 import { useEtherscanTransactions } from '../hooks/useEtherscanTransactions';
 import { formatUnits } from 'viem';
 
@@ -88,6 +89,15 @@ const TransactionHistory: React.FC = () => {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }, []);
 
+  // Exact short date for individual rows: MM/DD/YYYY
+  const formatDateShort = React.useCallback((timestamp: number): string => {
+    const d = new Date(timestamp);
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    return `${mm}/${dd}/${yyyy}`;
+  }, []);
+
   const groupEventsByDate = React.useCallback(
     (processedEvents: ProcessedEvent[]): GroupedEvent[] => {
       const groups: { [key: string]: ProcessedEvent[] } = {};
@@ -116,11 +126,10 @@ const TransactionHistory: React.FC = () => {
 
   const formatAmount = (amount: string, token: string, type: string) => {
     const prefix = type === 'incoming' ? '+' : type === 'outgoing' ? '-' : '';
-    const num = parseFloat(amount);
-    // If the value has a fractional component, show 2 decimals; otherwise show 0
-    const hasFraction = Math.abs(num - Math.trunc(num)) > 0;
-    const formatted = hasFraction ? num.toFixed(2) : num.toFixed(0);
-    return `${prefix}${formatted} ${token}`;
+    const num = Number(amount);
+    // Show up to 5 decimals but trim trailing zeros
+    const fixed = num.toFixed(5).replace(/\.0+$|(?<=\.[0-9]*?)0+$/g, '');
+    return `${prefix}${fixed} ${token}`;
   };
 
   const formatAddress = (addr: string | undefined) => {
@@ -183,7 +192,7 @@ const TransactionHistory: React.FC = () => {
                 : event.type === 'incoming'
                 ? 'From'
                 : 'To'}
-              : {formatAddress(event.address)}
+              : {formatAddress(event.address)} • {formatDateShort(event.timestamp)}
             </Typography>
           </Box>
         </Box>
@@ -201,7 +210,7 @@ const TransactionHistory: React.FC = () => {
           </Typography>
           <IconButton
             size="small"
-            onClick={() => window.open(`https://sepolia.etherscan.io/tx/${event.txHash}`, '_blank')}
+            onClick={() => window.open(`https://etherscan.io/tx/${event.txHash}`, '_blank')}
           >
             <ExternalIcon fontSize="small" />
           </IconButton>
@@ -292,12 +301,31 @@ const TransactionHistory: React.FC = () => {
             </Box>
           ) : (
             <Box>
-              {recentTransactions.map((event, index) => (
-                <Box key={event.id}>
-                  <TransactionRow event={event} animate={true} />
-                  {index < recentTransactions.length - 1 && <Divider sx={{ my: 1 }} />}
-                </Box>
-              ))}
+              {allProcessedEvents.length > 50 ? (
+                // Virtualized list for large datasets
+                <FixedSizeList
+                  height={400}
+                  itemCount={allProcessedEvents.length}
+                  itemSize={72}
+                  width="100%"
+                >
+                  {(props: { index: number; style: React.CSSProperties }) => {
+                    const { index, style } = props;
+                    return (
+                      <Box style={style} key={allProcessedEvents[index].id}>
+                        <TransactionRowInner event={allProcessedEvents[index]} />
+                      </Box>
+                    );
+                  }}
+                </FixedSizeList>
+              ) : (
+                recentTransactions.map((event, index) => (
+                  <Box key={event.id}>
+                    <TransactionRow event={event} animate={true} />
+                    {index < recentTransactions.length - 1 && <Divider sx={{ my: 1 }} />}
+                  </Box>
+                ))
+              )}
               {allProcessedEvents.length > 4 && (
                 <Box sx={{ textAlign: 'center', mt: 2 }}>
                   <Typography variant="caption" color="text.secondary">

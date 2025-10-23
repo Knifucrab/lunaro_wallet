@@ -5,7 +5,6 @@ import { useAccount } from 'wagmi';
 import { TrendingUp, TrendingDown, SwapHoriz, Token as TokenIconMUI } from '@mui/icons-material';
 // erc20Abi not needed here; token actions handled by hook
 import ApproveTransfer from './ApproveTransfer';
-import MintToken from './MintToken';
 
 interface TotalBalanceCardProps {
   totalBalance?: number;
@@ -141,7 +140,7 @@ const TotalBalanceCard: React.FC<TotalBalanceCardProps> = ({
             </Tabs>
 
             {/* Tab Panels render their own controls */}
-            <Box>{activeTab === 0 ? <ApproveTransfer /> : <MintToken />}</Box>
+            <Box>{<ApproveTransfer />}</Box>
           </Box>
         </CardContent>
       </Card>

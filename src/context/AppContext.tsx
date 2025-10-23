@@ -1,14 +1,17 @@
 import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
 
-export type Token = 'DAI' | 'USDC';
+export type Token = string;
 
 export interface TokenBalance {
-  symbol: Token;
+  symbol: string;
   balance: string; // string representation of the balance for the user
   price?: string; // USD price
   priceChange?: number; // percentage change (e.g., 1.68 for +1.68%)
   priceChangeAmount?: string; // dollar change amount (e.g., "+$12.08")
+  // Additional numeric fields for calculations (optional)
+  balanceRaw?: number; // raw numeric balance (e.g., 0.00106377)
+  priceRaw?: number; // total USD value for this holding (e.g., 4.15)
 }
 
 interface AppState {

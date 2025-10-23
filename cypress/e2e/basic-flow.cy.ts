@@ -1,9 +1,9 @@
-describe('Wonderland Wallet - Basic Flow', () => {
+describe('Lunaro Wallet - Basic Flow', () => {
   it('loads the homepage correctly', () => {
     cy.visit('/');
 
     // Check title
-    cy.title().should('contain', 'Wonderland Wallet');
+    cy.title().should('contain', 'Lunaro Wallet');
 
     // Should show connect wallet screen
     cy.contains('Connect Your Wallet').should('be.visible');

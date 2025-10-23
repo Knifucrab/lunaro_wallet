@@ -27,27 +27,18 @@ import {
 import { motion } from 'framer-motion';
 import { useAppContext } from '../context/useAppContext';
 import useTokenActions from '../hooks/useTokenActions';
+import useDetectedTokens from '../hooks/useDetectedTokens';
 import TokenIcon from './TokenIcon';
 
-// Token configuration - TODO: move to config file eventually
-const TOKENS = [
-  {
-    symbol: 'DAI',
-    address: '0x1D70D57ccD2798323232B2dD027B3aBcA5C00091',
-    decimals: 18,
-  },
-  {
-    symbol: 'USDC',
-    address: '0xC891481A0AaC630F4D89744ccD2C7D2C4215FD47',
-    decimals: 6,
-  },
-];
-
 const ApproveTransfer: React.FC = () => {
+  const detected = useDetectedTokens();
+
   const { balances } = useAppContext();
+  // use detected tokens if available, otherwise empty list
+  const tokens = detected && detected.length > 0 ? detected : [];
 
   // Form state - keeping it simple for now
-  const [token, setToken] = useState('DAI');
+  const [token, setToken] = useState(tokens[0]?.symbol || '');
   const [recipient, setRecipient] = useState('');
   const [amount, setAmount] = useState('');
   const {
@@ -64,7 +55,7 @@ const ApproveTransfer: React.FC = () => {
     setSuccess: setHookSuccess,
   } = useTokenActions();
 
-  const selectedToken = TOKENS.find((t) => t.symbol === token)!;
+  const selectedToken = tokens.find((t) => t.symbol === token)!;
   const balance = balances.find((b) => b.symbol === token)?.balance || '0';
 
   // clear hook messages when token changes
@@ -124,7 +115,7 @@ const ApproveTransfer: React.FC = () => {
               <Select
                 value={token}
                 onChange={(e) => setToken(e.target.value)}
-                disabled={loading}
+                disabled={loading || tokens.length === 0}
                 label="Token"
                 renderValue={(value) => (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -133,17 +124,23 @@ const ApproveTransfer: React.FC = () => {
                   </Box>
                 )}
               >
-                {TOKENS.map((t) => (
-                  <MenuItem key={t.symbol} value={t.symbol}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <TokenIcon symbol={t.symbol} size={24} />
-                      <Typography>{t.symbol}</Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
-                        {t.symbol === 'DAI' ? 'Dai Stablecoin' : 'USD Coin'}
-                      </Typography>
-                    </Box>
+                {tokens.length === 0 ? (
+                  <MenuItem value="">
+                    <Typography color="text.secondary">No tokens detected</Typography>
                   </MenuItem>
-                ))}
+                ) : (
+                  tokens.map((t) => (
+                    <MenuItem key={t.address} value={t.symbol}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <TokenIcon symbol={t.symbol} size={24} />
+                        <Typography>{t.symbol}</Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
+                          {t.address}
+                        </Typography>
+                      </Box>
+                    </MenuItem>
+                  ))
+                )}
               </Select>
             </FormControl>
 
@@ -332,9 +329,7 @@ const ApproveTransfer: React.FC = () => {
                   <Button
                     variant="contained"
                     size="small"
-                    onClick={() =>
-                      window.open(`https://sepolia.etherscan.io/tx/${modalContent}`, '_blank')
-                    }
+                    onClick={() => window.open(`https://etherscan.io/tx/${modalContent}`, '_blank')}
                   >
                     View on Etherscan
                   </Button>

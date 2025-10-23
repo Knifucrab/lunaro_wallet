@@ -66,11 +66,11 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
         <Box
           component="img"
           src="/black_wonderland_logo.svg"
-          alt="Wonderland Logo"
+          alt="Lunaro Logo"
           sx={{ width: 32, height: 32 }}
         />
         <Typography variant="h6" sx={{ fontWeight: 700, color: 'text.primary' }}>
-          Wonderland
+          Lunaro Wallet
         </Typography>
       </Box>
       {isConnected ? (

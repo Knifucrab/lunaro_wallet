@@ -60,7 +60,7 @@ const Home: React.FC = () => {
               mb: 2,
             }}
           >
-            Wonderland Wallet
+            Lunaro Wallet
           </Typography>
         </motion.div>
 

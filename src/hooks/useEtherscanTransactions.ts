@@ -5,8 +5,8 @@ import { useAccount } from 'wagmi';
 // Etherscan V2 API base URL (multichain API)
 const ETHERSCAN_V2_API_URL = 'https://api.etherscan.io/v2/api';
 
-// Sepolia testnet chain ID
-const SEPOLIA_CHAIN_ID = 11155111;
+// Mainnet chain ID
+const MAINNET_CHAIN_ID = 1;
 
 // Read API key from Vite env. When running locally, put the key in a `.env.local` file
 // as VITE_ETHERSCAN_API_KEY=your_key and restart the dev server.
@@ -43,11 +43,52 @@ interface UseEtherscanTransactionsResult {
   refetch: () => void;
 }
 
+const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
+
 export const useEtherscanTransactions = (): UseEtherscanTransactionsResult => {
   const { address } = useAccount();
   const [tokenTransactions, setTokenTransactions] = useState<EtherscanTokenTransaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const fetchWithRetry = async (params: Record<string, unknown>, retries = 5) => {
+    let attempt = 0;
+    let backoff = 500; // start 500ms
+    while (attempt < retries) {
+      try {
+        console.log('[useEtherscanTransactions] request params:', params);
+        const resp = await axios.get(ETHERSCAN_V2_API_URL, { params });
+        console.log('[useEtherscanTransactions] response:', resp.data);
+        // If rate limit message, wait and retry
+        const msg = resp.data?.message || '';
+        if (typeof msg === 'string' && msg.toLowerCase().includes('rate limit')) {
+          console.warn('[useEtherscanTransactions] rate limited, backing off', backoff);
+          await delay(backoff);
+          backoff *= 2;
+          attempt += 1;
+          continue;
+        }
+        return resp.data;
+      } catch (err: unknown) {
+        const e = err as { message?: string; response?: { data?: { message?: string } } };
+        const maybeMsg = e?.response?.data?.message;
+        const isRate = typeof maybeMsg === 'string' && maybeMsg.toLowerCase().includes('rate');
+        console.error(
+          '[useEtherscanTransactions] fetch error:',
+          e?.message || err,
+          e?.response?.data,
+        );
+        if (isRate) {
+          await delay(backoff);
+          backoff *= 2;
+          attempt += 1;
+          continue;
+        }
+        throw err;
+      }
+    }
+    throw new Error('Exceeded retries for Etherscan');
+  };
 
   const fetchTransactions = async () => {
     if (!address) {
@@ -56,7 +97,6 @@ export const useEtherscanTransactions = (): UseEtherscanTransactionsResult => {
       return;
     }
 
-    // If there's no API key configured, bail early with a helpful error
     if (!API_KEY) {
       const msg =
         'Missing Etherscan API key. Add VITE_ETHERSCAN_API_KEY to .env.local (see ETHERSCAN_API_SETUP.md)';
@@ -66,78 +106,111 @@ export const useEtherscanTransactions = (): UseEtherscanTransactionsResult => {
       return;
     }
 
-    console.log('Fetching transactions for address:', address);
     setLoading(true);
     setError(null);
 
     try {
-      // Fetch ERC20 token transfer events using V2 API
-      const tokenTxResponse = await axios.get(ETHERSCAN_V2_API_URL, {
-        params: {
-          chainid: SEPOLIA_CHAIN_ID, // V2 API requires chainid parameter
-          module: 'account',
-          action: 'tokentx',
-          address: address,
-          startblock: 0,
-          endblock: 99999999,
-          page: 1,
-          offset: 200, // Get up to last 200 token transactions
-          sort: 'desc', // Most recent first
-          apikey: API_KEY,
-        },
+      console.log('Fetching transactions (txlist + tokentx) for address:', address);
+
+      // 1) fetch normal transactions (txlist)
+      const txlistParams = {
+        chainid: MAINNET_CHAIN_ID,
+        module: 'account',
+        action: 'txlist',
+        address,
+        startblock: 0,
+        endblock: 99999999,
+        page: 1,
+        offset: 200,
+        sort: 'desc',
+        apikey: API_KEY,
+      };
+
+      const txlistData = await fetchWithRetry(txlistParams).catch((e) => {
+        console.warn('txlist fetch failed:', e.message || e);
+        return null;
       });
 
-      console.log('Token TX Response:', tokenTxResponse.data);
+      // 2) fetch ERC20 token transfers (tokentx)
+      const tokenTxParams = {
+        chainid: MAINNET_CHAIN_ID,
+        module: 'account',
+        action: 'tokentx',
+        address,
+        startblock: 0,
+        endblock: 99999999,
+        page: 1,
+        offset: 200,
+        sort: 'desc',
+        apikey: API_KEY,
+      };
 
-      if (tokenTxResponse.data.status === '1') {
-        const txs = tokenTxResponse.data.result || [];
-        console.log(`Found ${txs.length} token transactions`);
-        setTokenTransactions(txs);
-      } else if (
-        tokenTxResponse.data.status === '0' &&
-        tokenTxResponse.data.message === 'No transactions found'
-      ) {
-        // This is OK - just means no transactions yet
-        console.log('No token transactions found for this address');
+      const tokenTxData = await fetchWithRetry(tokenTxParams).catch((e) => {
+        console.warn('tokentx fetch failed:', e.message || e);
+        return null;
+      });
+
+      // Normalize results: token transfers keep their fields; normal txs are converted to token-like objects with ETH
+      const normalTxs = Array.isArray(txlistData?.result) ? txlistData.result : [];
+      const tokenTxs = Array.isArray(tokenTxData?.result) ? tokenTxData.result : [];
+
+      // Convert normal txs to EtherscanTokenTransaction-shaped entries representing ETH transfers
+      const convertedNormal = normalTxs.map((tx: unknown) => {
+        const t = tx as Record<string, unknown>;
+        return {
+          blockNumber: (t.blockNumber as string) ?? '',
+          timeStamp: (t.timeStamp as string) ?? '',
+          hash: (t.hash as string) ?? '',
+          nonce: (t.nonce as string) ?? '0',
+          blockHash: (t.blockHash as string) ?? '',
+          from: (t.from as string) ?? '',
+          contractAddress: '',
+          to: (t.to as string) ?? '',
+          value: (t.value as string) ?? '0',
+          tokenName: 'Ether',
+          tokenSymbol: 'ETH',
+          tokenDecimal: '18',
+          transactionIndex: (t.transactionIndex as string) ?? '0',
+          gas: (t.gas as string) ?? '0',
+          gasPrice: (t.gasPrice as string) ?? '0',
+          gasUsed: (t.gasUsed as string) ?? '0',
+          cumulativeGasUsed: (t.cumulativeGasUsed as string) ?? '0',
+          input: (t.input as string) ?? '0x',
+          confirmations: (t.confirmations as string) ?? '0',
+        };
+      });
+
+      // Merge and sort by timestamp desc
+      const merged = (
+        [
+          ...convertedNormal,
+          ...(tokenTxs as EtherscanTokenTransaction[]),
+        ] as EtherscanTokenTransaction[]
+      ).sort((a, b) => Number(b.timeStamp) - Number(a.timeStamp));
+
+      // If both are empty, handle no transactions
+      if (merged.length === 0) {
+        console.log('No transactions found for this address');
         setTokenTransactions([]);
       } else {
-        console.warn('Token transactions API returned:', tokenTxResponse.data.message);
-        setTokenTransactions([]);
-        if (typeof tokenTxResponse.data.message === 'string') {
-          const m = tokenTxResponse.data.message;
-          if (
-            m.includes('Invalid API Key') ||
-            m.includes('Missing/Invalid API Key') ||
-            m.includes('Too many invalid api key attempts')
-          ) {
-            setError(
-              `Etherscan API error: ${m}. Please verify VITE_ETHERSCAN_API_KEY in .env.local`,
-            );
-            setStopPolling(true);
-          }
-        }
+        console.log(`Found ${merged.length} transactions (normal + token)`);
+        setTokenTransactions(merged as EtherscanTokenTransaction[]);
       }
-    } catch (err) {
-      console.error('Error fetching Etherscan transactions:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch transactions');
+    } catch (err: unknown) {
+      const e = err as { message?: string; response?: { data?: unknown } };
+      console.error('Error fetching Etherscan transactions:', e?.message || err, e?.response?.data);
+      setError(e instanceof Error ? e.message : 'Failed to fetch transactions');
       setTokenTransactions([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Stop polling if we detect an invalid key to avoid repeated rate-limit errors
-  const [stopPolling, setStopPolling] = useState(false);
-
   useEffect(() => {
-    // If polling has been stopped (invalid key), skip fetch
-    if (stopPolling) return;
-
-    // Fetch once when the address (or stopPolling) changes. Manual refetch is
-    // still available via the returned refetch function.
+    // Fetch once when the address changes
     fetchTransactions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [address, stopPolling]);
+  }, [address]);
 
   return {
     tokenTransactions,

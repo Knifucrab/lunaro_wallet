@@ -17,6 +17,9 @@ import TokenIcon from './TokenIcon';
 
 const Balances: React.FC = () => {
   const { balances } = useAppContext();
+  React.useEffect(() => {
+    console.log('[Balances] context balances:', balances);
+  }, [balances]);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {

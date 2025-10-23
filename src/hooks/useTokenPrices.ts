@@ -18,16 +18,22 @@ export function useTokenPrices() {
   useEffect(() => {
     const fetchPrices = async () => {
       try {
-        // Using CoinGecko's free API to get DAI and USDC prices
+        // Fetch ETH price plus DAI/USDC. We use CoinGecko 'simple/price' API for symbols
+        const ids = 'ethereum,dai,usd-coin';
         const response = await axios.get('https://api.coingecko.com/api/v3/simple/price', {
           params: {
-            ids: 'dai,usd-coin',
+            ids,
             vs_currencies: 'usd',
             include_24hr_change: true,
           },
         });
+        console.log('[useTokenPrices] coingecko response:', response.data);
 
         setPrices({
+          ETH: {
+            usd: response.data.ethereum.usd,
+            usd_24h_change: response.data.ethereum.usd_24h_change,
+          },
           DAI: {
             usd: response.data.dai.usd,
             usd_24h_change: response.data.dai.usd_24h_change,

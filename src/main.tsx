@@ -5,16 +5,16 @@ import App from './App.tsx';
 import '@rainbow-me/rainbowkit/styles.css';
 import { getDefaultConfig, RainbowKitProvider } from '@rainbow-me/rainbowkit';
 import { WagmiProvider, http } from 'wagmi';
-import { sepolia } from 'wagmi/chains';
+import { mainnet } from 'wagmi/chains';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppProvider } from './context/AppContext.tsx';
 
 const config = getDefaultConfig({
   appName: 'Blockchain Frontend Challenge',
   projectId: 'YOUR_PROJECT_ID',
-  chains: [sepolia],
+  chains: [mainnet],
   transports: {
-    [sepolia.id]: http(),
+    [mainnet.id]: http(),
   },
 });
 

@@ -1,77 +1,110 @@
 import { useEffect } from 'react';
-import { useAccount, useReadContract } from 'wagmi';
-import { erc20Abi } from 'viem';
+import { useAccount, usePublicClient } from 'wagmi';
+import type { TokenBalance } from '../context/AppContext';
+import { erc20Abi, formatUnits } from 'viem';
 import { useAppContext } from '../context/useAppContext';
 import { useTokenPrices } from './useTokenPrices';
-
-const TOKENS = [
-  {
-    symbol: 'DAI',
-    address: '0x1D70D57ccD2798323232B2dD027B3aBcA5C00091' as `0x${string}`,
-    decimals: 18,
-  },
-  {
-    symbol: 'USDC',
-    address: '0xC891481A0AaC630F4D89744ccD2C7D2C4215FD47' as `0x${string}`,
-    decimals: 6,
-  },
-];
+import useDetectedTokens from './useDetectedTokens';
 
 export function useTokenBalances() {
   const { address } = useAccount();
+  const publicClient = usePublicClient();
   const { setBalances } = useAppContext();
   const { prices } = useTokenPrices();
-
-  const dai = useReadContract({
-    address: TOKENS[0].address,
-    abi: erc20Abi,
-    functionName: 'balanceOf',
-    args: address ? [address] : undefined,
-    query: {
-      enabled: !!address,
-    },
-  });
-  const usdc = useReadContract({
-    address: TOKENS[1].address,
-    abi: erc20Abi,
-    functionName: 'balanceOf',
-    args: address ? [address] : undefined,
-    query: {
-      enabled: !!address,
-    },
-  });
+  const detected = useDetectedTokens();
 
   useEffect(() => {
-    if (address && dai.data !== undefined && usdc.data !== undefined) {
-      const daiPrice = prices?.DAI;
-      const usdcPrice = prices?.USDC;
-
-      setBalances([
-        {
-          symbol: 'DAI',
-          balance: (Number(dai.data) / Math.pow(10, TOKENS[0].decimals)).toLocaleString(),
-          price: daiPrice ? `$${daiPrice.usd.toFixed(4)} USD` : '$1.00 USD',
-          priceChange: daiPrice ? Number(daiPrice.usd_24h_change.toFixed(2)) : 0,
-          priceChangeAmount: daiPrice
-            ? `${daiPrice.usd_24h_change >= 0 ? '+' : ''}$${(
-                daiPrice.usd *
-                (daiPrice.usd_24h_change / 100)
-              ).toFixed(4)}`
-            : '+$0.00',
-        },
-        {
-          symbol: 'USDC',
-          balance: (Number(usdc.data) / Math.pow(10, TOKENS[1].decimals)).toLocaleString(),
-          price: usdcPrice ? `$${usdcPrice.usd.toFixed(4)} USD` : '$1.00 USD',
-          priceChange: usdcPrice ? Number(usdcPrice.usd_24h_change.toFixed(2)) : 0,
-          priceChangeAmount: usdcPrice
-            ? `${usdcPrice.usd_24h_change >= 0 ? '+' : ''}$${(
-                usdcPrice.usd *
-                (usdcPrice.usd_24h_change / 100)
-              ).toFixed(4)}`
-            : '+$0.00',
-        },
-      ]);
+    if (!address) {
+      setBalances([]);
+      return;
     }
-  }, [address, dai.data, usdc.data, setBalances, prices]);
+
+    let mounted = true;
+
+    (async () => {
+      try {
+        if (!publicClient) return;
+
+        // Always fetch native ETH balance so users see their ETH even if no ERC-20 tokens detected
+        const nativeRaw = await publicClient.getBalance({ address: address as `0x${string}` });
+        const nativeNumber = Number(formatUnits(nativeRaw as bigint, 18));
+        console.log('[useTokenBalances] nativeRaw:', nativeRaw, 'nativeNumber:', nativeNumber);
+
+        const ethPrice = prices?.ETH;
+        const ethUsd = ethPrice?.usd || 0;
+        const results: TokenBalance[] = [
+          {
+            symbol: 'ETH',
+            balance: nativeNumber.toLocaleString(),
+            balanceRaw: nativeNumber,
+            priceRaw: Number((nativeNumber * ethUsd).toFixed(6)),
+            price: ethPrice ? `$${(nativeNumber * ethUsd).toFixed(6)} USD` : undefined,
+            priceChange: ethPrice ? Number(ethPrice.usd_24h_change.toFixed(2)) : undefined,
+            priceChangeAmount: ethPrice
+              ? `${ethPrice.usd_24h_change >= 0 ? '+' : ''}$${(
+                  ethPrice.usd *
+                  (ethPrice.usd_24h_change / 100) *
+                  nativeNumber
+                ).toFixed(6)}`
+              : undefined,
+          },
+        ];
+
+        // If detected tokens exist, fetch ERC-20 balances and append
+        if (detected && detected.length > 0) {
+          console.log('[useTokenBalances] detected tokens:', detected);
+          const tokenResults = await Promise.all(
+            detected.map(async (t) => {
+              try {
+                const raw = await publicClient.readContract({
+                  address: t.address,
+                  abi: erc20Abi,
+                  functionName: 'balanceOf',
+                  args: [address as `0x${string}`],
+                });
+                const balanceNum = Number(raw) / Math.pow(10, t.decimals);
+                console.log(
+                  '[useTokenBalances] readContract',
+                  t.symbol,
+                  t.address,
+                  'raw:',
+                  raw,
+                  'balanceNum:',
+                  balanceNum,
+                );
+                const tokenPrice = prices?.[t.symbol as string];
+                return {
+                  symbol: t.symbol,
+                  balance: balanceNum.toLocaleString(),
+                  price: tokenPrice ? `$${tokenPrice.usd.toFixed(4)} USD` : undefined,
+                  priceChange: tokenPrice ? Number(tokenPrice.usd_24h_change.toFixed(2)) : 0,
+                  priceChangeAmount: tokenPrice
+                    ? `${tokenPrice.usd_24h_change >= 0 ? '+' : ''}$${(
+                        tokenPrice.usd *
+                        (tokenPrice.usd_24h_change / 100)
+                      ).toFixed(4)}`
+                    : undefined,
+                };
+              } catch (err) {
+                console.error('readContract error', err);
+                return {
+                  symbol: t.symbol,
+                  balance: '0',
+                } as TokenBalance;
+              }
+            }),
+          );
+
+          results.push(...(tokenResults as TokenBalance[]));
+        }
+
+        if (mounted) setBalances(results as TokenBalance[]);
+      } catch (err) {
+        console.error('Failed to fetch dynamic token balances', err);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [address, detected, publicClient, setBalances, prices]);
 }

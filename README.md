@@ -1,4 +1,5 @@
-# Wonderland Wallet
+# Lunaro Wallet
+
 A simple React dApp for managing ERC-20 tokens on Sepolia testnet. Enjoy your trip was fun to develop it!
 
 <img width="1898" height="863" alt="{3587B746-DB1C-4E0C-9416-D5E51FD9D7D9}" src="https://github.com/user-attachments/assets/de6d2536-7d7a-425d-9a40-96328ec7133f" />
@@ -7,8 +8,6 @@ A simple React dApp for managing ERC-20 tokens on Sepolia testnet. Enjoy your tr
 <img width="391" height="669" alt="{AB83F1B6-43B1-4955-99F1-2C4F5D9FA693}" src="https://github.com/user-attachments/assets/fae8c47e-3846-4c02-8afb-b0017e8c0170" />
 <img width="391" height="656" alt="{07817790-FDB5-455D-B9E2-75911DB93861}" src="https://github.com/user-attachments/assets/50e0cb58-c778-474d-9cca-fe3f347b81e2" />
 
-
-
 ## Features
 
 - View token balances (DAI/USDC)
@@ -16,6 +15,9 @@ A simple React dApp for managing ERC-20 tokens on Sepolia testnet. Enjoy your tr
 - Transfer tokens
 - Mint test tokens
 - Transaction history
+- Token prices fetched from CoinGecko
+- Transaction history via Etherscan V2 (Sepolia)
+- Charts rendered with react-charts
 
 ## Tech Stack
 
